@@ -122,11 +122,19 @@ def enroll_face():
     # Get the face encoding (the 128-d biometric signature)
     face_encoding = face_recognition.face_encodings(rgb_frame, face_locations)[0]
     
+    # Check if user already exists
+    if username in known_faces_db["names"]:
+        # Update existing user's encoding
+        existing_index = known_faces_db["names"].index(username)
+        known_faces_db["encodings"][existing_index] = face_encoding
+        print(f"Updated enrollment for {username}.")
+        return jsonify({"status": "success", "message": f"User {username} updated successfully!"})
+    
     # Save to our "database"
     known_faces_db["encodings"].append(face_encoding)
     known_faces_db["names"].append(username)
     
-    print(f"Enrolled {username} successfully.")
+    print(f"Enrolled {username} successfully. Total users: {len(known_faces_db['names'])}")
     return jsonify({"status": "success", "message": f"User {username} enrolled successfully!"})
 
 
@@ -149,16 +157,27 @@ def login_face():
 
     for face_encoding in face_encodings:
         # See if the face matches any known faces
-        matches = face_recognition.compare_faces(known_faces_db["encodings"], face_encoding, tolerance=0.6)
-        name = "Unknown"
-
-        # Use the first match
+        # Lower tolerance = stricter matching (0.6 is default, 0.4-0.5 is stricter)
+        matches = face_recognition.compare_faces(known_faces_db["encodings"], face_encoding, tolerance=0.4)
+        
+        # Also get face distances for better matching
+        face_distances = face_recognition.face_distance(known_faces_db["encodings"], face_encoding)
+        
+        # Use the best match (lowest distance)
         if True in matches:
-            first_match_index = matches.index(True)
-            name = known_faces_db["names"][first_match_index]
+            # Find the best match (smallest distance)
+            best_match_index = face_distances.argmin()
             
-            print(f"Login successful for {name}")
-            return jsonify({"status": "success", "message": f"Welcome, {name}!"})
+            # Double-check if best match is actually a match
+            if matches[best_match_index]:
+                name = known_faces_db["names"][best_match_index]
+                confidence = 1 - face_distances[best_match_index]
+                
+                print(f"Login successful for {name} (confidence: {confidence:.2f})")
+                return jsonify({
+                    "status": "success", 
+                    "message": f"Welcome, {name}! (Match: {confidence*100:.1f}%)"
+                })
 
     print("Login failed: Unknown user")
     return jsonify({"status": "error", "message": "Login failed: User not recognized."})
