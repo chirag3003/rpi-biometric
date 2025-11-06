@@ -4,12 +4,14 @@ import socketserver
 import numpy as np
 import cv2
 import face_recognition
-from flask import Flask, render_template, Response, request, jsonify
+from flask import Flask, render_template, Response, request, jsonify, session, redirect, url_for
 from http import server
 from threading import Condition, Thread
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
+from datetime import datetime
+import secrets
 
 # --- Part 1: Video Streaming ---
 # This section sets up the live MJPEG video stream
@@ -64,6 +66,7 @@ picam2.start_recording(JpegEncoder(), FileOutput(output))
 # This section handles the web page and the login/enroll API
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)  # For session management
 
 # A simple in-memory "database" to store user face encodings
 # In a real app, you'd save this to a file or database.
@@ -71,6 +74,9 @@ known_faces_db = {
     "encodings": [],
     "names": []
 }
+
+# Attendance tracking: username -> last check-in time
+attendance_records = {}
 
 def get_video_frame():
     """Grabs the current video frame from the streaming output."""
@@ -83,7 +89,23 @@ def get_video_frame():
 @app.route('/')
 def index():
     """Serves the main HTML page."""
+    # If user is already logged in, redirect to dashboard
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
     return render_template('index.html')
+
+@app.route('/dashboard')
+def dashboard():
+    """Serves the todo list dashboard - requires authentication."""
+    if 'username' not in session:
+        return redirect(url_for('index'))
+    return render_template('dashboard.html', username=session['username'])
+
+@app.route('/logout')
+def logout():
+    """Logs out the user."""
+    session.pop('username', None)
+    return redirect(url_for('index'))
 
 @app.route('/video_feed')
 def video_feed():
@@ -173,14 +195,61 @@ def login_face():
                 name = known_faces_db["names"][best_match_index]
                 confidence = 1 - face_distances[best_match_index]
                 
+                # Set session
+                session['username'] = name
+                
+                # Record attendance check-in
+                attendance_records[name] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
                 print(f"Login successful for {name} (confidence: {confidence:.2f})")
                 return jsonify({
                     "status": "success", 
-                    "message": f"Welcome, {name}! (Match: {confidence*100:.1f}%)"
+                    "message": f"Welcome, {name}! (Match: {confidence*100:.1f}%)",
+                    "username": name
                 })
 
     print("Login failed: Unknown user")
     return jsonify({"status": "error", "message": "Login failed: User not recognized."})
+
+
+# --- Attendance API Routes ---
+
+@app.route('/api/attendance', methods=['GET'])
+def get_attendance():
+    """Get all attendance records."""
+    if 'username' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+    
+    # Build attendance list with all enrolled users
+    attendance_list = []
+    for name in known_faces_db["names"]:
+        attendance_list.append({
+            "name": name,
+            "last_checkin": attendance_records.get(name, "Never"),
+            "status": "checked_in" if name in attendance_records else "not_checked_in"
+        })
+    
+    return jsonify({
+        "status": "success", 
+        "attendance": attendance_list,
+        "total_users": len(known_faces_db["names"]),
+        "checked_in_today": len(attendance_records)
+    })
+
+
+@app.route('/api/checkin', methods=['POST'])
+def manual_checkin():
+    """Manually check in (uses face recognition)."""
+    if 'username' not in session:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+    
+    username = session['username']
+    attendance_records[username] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    return jsonify({
+        "status": "success", 
+        "message": f"Checked in at {attendance_records[username]}"
+    })
 
 
 # --- Part 3: Main execution ---

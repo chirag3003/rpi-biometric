@@ -1,35 +1,235 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Biometric Login</title>
+    <title>Biometric Authentication</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; display: grid; place-items: center; min-height: 90vh; background: #f4f4f4; }
-        .container { background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        img { border: 2px solid #ddd; border-radius: 4px; width: 640px; height: 480px; }
-        input { padding: 0.5rem; border-radius: 4px; border: 1px solid #ccc; margin-right: 0.5rem; }
-        button { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-        .btn-enroll { background: #007bff; color: white; }
-        .btn-login { background: #28a745; color: white; }
-        #message { margin-top: 1rem; font-size: 1.1rem; font-weight: bold; }
-        .success { color: #28a745; }
-        .error { color: #dc3545; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .video-container {
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+            background: #000;
+        }
+
+        .video-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.4));
+            pointer-events: none;
+        }
+
+        .controls {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .btn-enroll {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            width: 100%;
+        }
+
+        #message {
+            margin-top: 1.5rem;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #message.show {
+            opacity: 1;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Biometric Authentication</h1>
-        <img src="http://10.42.0.117:8000/stream.mjpg" width="640" height="480">
+        <h1>🔐 Biometric Authentication</h1>
         
-        <div id="controls" style="margin-top: 1rem;">
-            <input type="text" id="username" placeholder="Enter your name">
-            <button id="enrollButton" class="btn-enroll">Enroll This Face</button>
+        <div class="video-container">
+            <img src="http://10.42.0.117:8000/stream.mjpg" alt="Camera Feed">
+            <div class="video-overlay"></div>
         </div>
         
-        <div style="margin-top: 1rem;">
-            <button id="loginButton" class="btn-login">Login with Face</button>
+        <div class="controls">
+            <div class="input-group">
+                <input type="text" id="username" placeholder="Enter your name" maxlength="30">
+                <button id="enrollButton" class="btn-enroll">Enroll Face</button>
+            </div>
+            
+            <button id="loginButton" class="btn-login">Login with Face Recognition</button>
         </div>
         
         <div id="message"></div>
+        
+        <div class="footer">
+            Secure biometric authentication powered by face recognition
+        </div>
     </div>
 
     <script>
@@ -40,13 +240,14 @@
 
         // --- ENROLLMENT ---
         enrollButton.addEventListener('click', async () => {
-            const username = usernameInput.value;
+            const username = usernameInput.value.trim();
             if (!username) {
                 showMessage('Please enter a name to enroll.', 'error');
                 return;
             }
 
-            showMessage('Processing...', ''); // Clear message
+            enrollButton.disabled = true;
+            enrollButton.innerHTML = 'Processing<span class="spinner"></span>';
 
             try {
                 const response = await fetch('/enroll', {
@@ -59,17 +260,22 @@
                 
                 if (data.status === 'success') {
                     showMessage(data.message, 'success');
+                    usernameInput.value = '';
                 } else {
                     showMessage(data.message, 'error');
                 }
             } catch (err) {
                 showMessage('An error occurred during enrollment.', 'error');
+            } finally {
+                enrollButton.disabled = false;
+                enrollButton.innerHTML = 'Enroll Face';
             }
         });
 
         // --- LOGIN ---
         loginButton.addEventListener('click', async () => {
-            showMessage('Attempting login...', ''); // Clear message
+            loginButton.disabled = true;
+            loginButton.innerHTML = 'Authenticating<span class="spinner"></span>';
             
             try {
                 const response = await fetch('/login');
@@ -77,19 +283,34 @@
 
                 if (data.status === 'success') {
                     showMessage(data.message, 'success');
-                    // In a real app, you would redirect here:
-                    // window.location.href = '/dashboard'; 
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1000);
                 } else {
                     showMessage(data.message, 'error');
                 }
             } catch (err) {
                 showMessage('An error occurred during login.', 'error');
+            } finally {
+                loginButton.disabled = false;
+                loginButton.innerHTML = 'Login with Face Recognition';
+            }
+        });
+
+        // Allow Enter key to enroll
+        usernameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                enrollButton.click();
             }
         });
 
         function showMessage(text, type) {
             messageDiv.textContent = text;
-            messageDiv.className = type; // 'success' or 'error'
+            messageDiv.className = type + ' show';
+            
+            setTimeout(() => {
+                messageDiv.classList.remove('show');
+            }, 5000);
         }
     </script>
 </body>
