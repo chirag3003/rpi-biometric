@@ -13,6 +13,80 @@ from picamera2.outputs import FileOutput
 from datetime import datetime
 import secrets
 
+### NEW ###
+import RPi.GPIO as GPIO
+import pyttsx3
+import socket
+import time
+
+# --- NEW: Hardware & TTS Setup ---
+# GPIO Pin Definitions (BCM numbering)
+BUTTON_PIN = 17
+GREEN_LED_PIN = 22
+RED_LED_PIN = 27
+
+# Setup GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(GREEN_LED_PIN, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(RED_LED_PIN, GPIO.OUT, initial=GPIO.LOW)
+# Setup button with an internal pull-up resistor
+# It will be HIGH (True) normally and LOW (False) when pressed
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+# Initialize Text-to-Speech engine
+tts_engine = pyttsx3.init()
+# Optional: Slow down the speech rate
+tts_engine.setProperty('rate', 150)
+
+# --- NEW: Helper Functions ---
+def get_ip_address():
+    """Finds the Pi's current IP address."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Connect to a public server (doesn't send data)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        # Fallback if not connected to internet
+        return "127.0.0.1"
+
+def speak(text):
+    """Speaks the given text in a separate thread."""
+    def speak_task():
+        print(f"Speaking: {text}")
+        tts_engine.say(text)
+        tts_engine.runAndWait()
+    # Run in a thread to avoid blocking other code
+    Thread(target=speak_task, daemon=True).start()
+
+def speak_ip_callback(channel):
+    """Callback function for the button press."""
+    print("Button pressed! Speaking IP...")
+    ip = get_ip_address()
+    # Format for clearer speech
+    ip_spoken = ip.replace(".", " dot ")
+    speak(f"My IP address is {ip_spoken}")
+
+def blink_led(pin, times=3, duration=0.5):
+    """Blinks an LED in a separate thread."""
+    def blink_task():
+        for _ in range(times):
+            GPIO.output(pin, GPIO.HIGH)
+            time.sleep(duration / 2)
+            GPIO.output(pin, GPIO.LOW)
+            time.sleep(duration / 2)
+    # Run in a thread to avoid blocking the web response
+    Thread(target=blink_task, daemon=True).start()
+
+# --- NEW: Add Button Event Detection ---
+# This runs in the background.
+# It detects a FALLING edge (HIGH to LOW) when the button is pressed.
+# bouncetime prevents it from triggering multiple times on one press.
+GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=speak_ip_callback, bouncetime=2000)
+
 # --- Part 1: Video Streaming ---
 # This section sets up the live MJPEG video stream
 
@@ -137,8 +211,12 @@ def enroll_face():
     face_locations = face_recognition.face_locations(rgb_frame)
     
     if len(face_locations) == 0:
+        ### NEW ###
+        blink_led(RED_LED_PIN)
         return jsonify({"status": "error", "message": "No face found. Please look at the camera."})
     if len(face_locations) > 1:
+        ### NEW ###
+        blink_led(RED_LED_PIN)
         return jsonify({"status": "error", "message": "Multiple faces found. Only one person at a time."})
 
     # Get the face encoding (the 128-d biometric signature)
