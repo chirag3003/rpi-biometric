@@ -40,7 +40,7 @@ try:
     lgpio.gpio_claim_output(h, RED_LED_PIN, lgpio.LOW)
     
     # Setup button as input with pull-up resistor
-    lgpio.gpio_claim_input(h, BUTTON_PIN, flags=lgpio.SET_PULL_UP)
+    lgpio.gpio_claim_input(h, BUTTON_PIN, lFlags=lgpio.SET_PULL_UP)
     # lgpio.gpio_claim_input(h, BUTTON_PIN, lgpio.PUD_UP)
     
     print("GPIO chip opened successfully.")
