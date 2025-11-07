@@ -239,6 +239,7 @@ def enroll_face():
     if len(face_locations) == 0:
         ### NEW ###
         blink_led(RED_LED_PIN)
+        blink_led(GREEN_LED_PIN)
         return jsonify({"status": "error", "message": "No face found. Please look at the camera."})
     if len(face_locations) > 1:
         ### NEW ###
