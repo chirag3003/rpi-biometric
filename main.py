@@ -19,24 +19,38 @@ import pyttsx3
 import socket
 import time
 
+### NEW ###
+import lgpio  # Use lgpio instead of RPi.GPIO
+import pyttsx3
+import socket
+import time
+
 # --- NEW: Hardware & TTS Setup ---
 # GPIO Pin Definitions (BCM numbering)
 BUTTON_PIN = 17
 GREEN_LED_PIN = 22
 RED_LED_PIN = 27
 
-# Setup GPIO
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(GREEN_LED_PIN, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(RED_LED_PIN, GPIO.OUT, initial=GPIO.LOW)
-# Setup button with an internal pull-up resistor
-# It will be HIGH (True) normally and LOW (False) when pressed
-GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+### UPDATED: Setup GPIO with lgpio ###
+try:
+    h = lgpio.gpiochip_open(0)  # Open the default GPIO chip (chip 0)
+    
+    # Setup LEDs as output, default LOW
+    lgpio.gpio_claim_output(h, GREEN_LED_PIN, lgpio.LOW)
+    lgpio.gpio_claim_output(h, RED_LED_PIN, lgpio.LOW)
+    
+    # Setup button as input with pull-up resistor
+    lgpio.gpio_claim_input(h, BUTTON_PIN, lgpio.PUD_UP)
+    
+    print("GPIO chip opened successfully.")
+except Exception as e:
+    print(f"FATAL ERROR: Could not open GPIO chip. {e}")
+    print("This may be a permissions issue. Try running with 'sudo'.")
+    exit()
+
 
 # Initialize Text-to-Speech engine
 tts_engine = pyttsx3.init()
-# Optional: Slow down the speech rate
 tts_engine.setProperty('rate', 150)
 
 # --- NEW: Helper Functions ---
@@ -44,13 +58,11 @@ def get_ip_address():
     """Finds the Pi's current IP address."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Connect to a public server (doesn't send data)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
     except Exception:
-        # Fallback if not connected to internet
         return "127.0.0.1"
 
 def speak(text):
@@ -59,34 +71,38 @@ def speak(text):
         print(f"Speaking: {text}")
         tts_engine.say(text)
         tts_engine.runAndWait()
-    # Run in a thread to avoid blocking other code
     Thread(target=speak_task, daemon=True).start()
 
-def speak_ip_callback(channel):
+### UPDATED: Callback for lgpio ###
+def speak_ip_callback(chip, gpio, level, tick):
     """Callback function for the button press."""
+    # This callback receives chip, gpio, level, and time (tick)
     print("Button pressed! Speaking IP...")
     ip = get_ip_address()
-    # Format for clearer speech
     ip_spoken = ip.replace(".", " dot ")
     speak(f"My IP address is {ip_spoken}")
 
+### UPDATED: Blink function for lgpio ###
 def blink_led(pin, times=3, duration=0.5):
     """Blinks an LED in a separate thread."""
     def blink_task():
         for _ in range(times):
-            GPIO.output(pin, GPIO.HIGH)
+            lgpio.gpio_write(h, pin, lgpio.HIGH) # Use lgpio.HIGH (or 1)
             time.sleep(duration / 2)
-            GPIO.output(pin, GPIO.LOW)
+            lgpio.gpio_write(h, pin, lgpio.LOW)  # Use lgpio.LOW (or 0)
             time.sleep(duration / 2)
-    # Run in a thread to avoid blocking the web response
     Thread(target=blink_task, daemon=True).start()
 
-# --- NEW: Add Button Event Detection ---
-# This runs in the background.
-# It detects a FALLING edge (HIGH to LOW) when the button is pressed.
-# bouncetime prevents it from triggering multiple times on one press.
-GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=speak_ip_callback, bouncetime=2000)
-
+# --- NEW: Add Button Event Detection (lgpio style) ---
+# Set up a background callback. Debounce is in *microseconds*
+# 2000 ms = 2,000,000 µs
+try:
+    button_callback = lgpio.callback(h, BUTTON_PIN, lgpio.FALLING_EDGE, speak_ip_callback, 2000000)
+    print("GPIO event listener for button started.")
+except Exception as e:
+    print(f"Error setting up button callback: {e}")
+    lgpio.gpiochip_close(h)
+    exit()
 # --- Part 1: Video Streaming ---
 # This section sets up the live MJPEG video stream
 
