@@ -220,6 +220,8 @@ def video_feed():
 @app.route('/enroll', methods=['POST'])
 def enroll_face():
     """Enrolls a new user's face."""
+    print("blinking")
+    blink_led(RED_LED_PIN)
     data = request.get_json()
     username = data.get('username')
     
