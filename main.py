@@ -98,7 +98,14 @@ def blink_led(pin, times=3, duration=0.5):
 # Set up a background callback. Debounce is in *microseconds*
 # 2000 ms = 2,000,000 µs
 try:
-    button_callback = lgpio.callback(h, BUTTON_PIN, lgpio.FALLING_EDGE, speak_ip_callback, 2000000)
+    # --- THIS IS THE FIX ---
+    # Step 1: Set the debounce time for the pin first
+    lgpio.gpio_set_debounce_micros(h, BUTTON_PIN, 2000000)
+
+    # Step 2: Now, set the callback (with only 4 arguments)
+    button_callback = lgpio.callback(h, BUTTON_PIN, lgpio.FALLING_EDGE, speak_ip_callback)
+    # --- END FIX ---
+
     print("GPIO event listener for button started.")
 except Exception as e:
     print(f"Error setting up button callback: {e}")
